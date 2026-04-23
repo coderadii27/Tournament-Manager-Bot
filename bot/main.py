@@ -37,6 +37,7 @@ INITIAL_COGS = [
     "cogs.moderation",
     "cogs.purge",
     "cogs.giveaway",
+    "cogs.management",
 ]
 
 
@@ -50,11 +51,26 @@ async def on_ready():
             name="Organising Tournaments in BRN ESPORTS",
         ),
     )
+    total = 0
+    for guild in bot.guilds:
+        try:
+            bot.tree.copy_global_to(guild=guild)
+            synced = await bot.tree.sync(guild=guild)
+            total += len(synced)
+            log.info("Synced %d commands to guild %s", len(synced), guild.name)
+        except Exception as e:
+            log.exception("Sync failed for %s: %s", guild.name, e)
+    log.info("Total per-guild commands synced: %d", total)
+
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
     try:
-        synced = await bot.tree.sync()
-        log.info("Synced %d slash commands.", len(synced))
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        log.info("Synced %d commands to new guild %s", len(synced), guild.name)
     except Exception as e:
-        log.exception("Slash command sync failed: %s", e)
+        log.exception("Sync on join failed: %s", e)
 
 
 @bot.event
