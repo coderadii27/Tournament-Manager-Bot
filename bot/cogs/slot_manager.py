@@ -88,8 +88,24 @@ class SlotManager(commands.Cog):
         g = get_guild(guild.id)
         ch = discord.utils.get(guild.text_channels, name="slot-manager")
         category = discord.utils.get(guild.categories, name="🏆 BRN ESPORTS")
+        # Private: hide from @everyone, allow bot full access. Members with
+        # Manage Channels (admins/staff) can see it via permission inheritance.
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            guild.me: discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, manage_messages=True, manage_channels=True
+            ),
+        }
         if ch is None:
-            ch = await guild.create_text_channel("slot-manager", category=category)
+            ch = await guild.create_text_channel(
+                "slot-manager", category=category, overwrites=overwrites,
+                reason="Private slot manager channel",
+            )
+        else:
+            try:
+                await ch.set_permissions(guild.default_role, overwrite=overwrites[guild.default_role])
+            except discord.Forbidden:
+                pass
         embed = discord.Embed(
             title=f"🎟️ Tournament Slot Manager — {g.get('tournament_name', 'EliteQ-tourny')}",
             description=(

@@ -6,6 +6,10 @@ import { BRAND, ACCENT, CHANNEL_NAMES, REGISTRATION_FORMAT } from "../constants.
 import { getGuild, saveGuild, setGiveaway, getAllGiveaways } from "../state.js";
 import { giveawayEmbed } from "./prefix.js";
 import { handleTicketButton } from "./tickets.js";
+import {
+  ensureCategoryAndChannels, applyRunningPerms, applyPausedPerms,
+  postToAllTournamentChannels, postFormatMessage, ensurePrivateSlotManagerChannel,
+} from "../utils/channels.js";
 
 export async function handleInteraction(i) {
   if (i.isButton()) return handleButton(i);
@@ -38,38 +42,57 @@ async function tournamentButton(i, action) {
 
   if (action === "channels") {
     await i.deferReply({ ephemeral: true });
-    const cat = await i.guild.channels.create({
-      name: `🏆 ${g.tournament_name}`, type: ChannelType.GuildCategory,
-    });
-    const created = [];
-    let regCh = null, confirmCh = null, formatCh = null;
-    for (const name of CHANNEL_NAMES) {
-      const ch = await i.guild.channels.create({ name, type: ChannelType.GuildText, parent: cat.id });
-      created.push(ch);
-      if (name.includes("registration-format")) formatCh = ch;
-      else if (name.includes("registration") && !regCh) regCh = ch;
-      if (name.includes("confirm-teams")) confirmCh = ch;
-    }
-    g.registration_channel_id = regCh?.id || null;
-    g.confirm_channel_id = confirmCh?.id || null;
+    const { category, channels, ids } = await ensureCategoryAndChannels(i.guild);
+    await postFormatMessage(i.guild);
+    await applyRunningPerms(i.guild);
+    g.registration_channel_id = ids.registration_channel_id;
+    g.confirm_channel_id = ids.confirm_channel_id;
     saveGuild(i.guildId, g);
-    if (formatCh) {
-      const e = new EmbedBuilder().setTitle("📝 Registration Format").setColor(ACCENT)
-        .setDescription(`Copy this format, fill it, and post it in <#${regCh?.id}>.\n\n${REGISTRATION_FORMAT}`)
-        .setFooter({ text: "BRN ESPORTS OFFICIAL BOT" });
-      await formatCh.send({ embeds: [e] });
-    }
-    return i.editReply(`✅ Created **${created.length}** channels under **${cat.name}**.`);
+    return i.editReply(
+      `✅ Created/verified **${channels.length}** channels under **${category.name}** and applied tournament permissions.`,
+    );
   }
 
   if (action === "start") {
-    g.running = true; g.paused = false; saveGuild(i.guildId, g);
-    return i.reply({ content: "▶️ Tournament started.", ephemeral: true });
+    await i.deferReply({ ephemeral: true });
+    const { ids } = await ensureCategoryAndChannels(i.guild);
+    await postFormatMessage(i.guild);
+    await applyRunningPerms(i.guild);
+    g.running = true; g.paused = false;
+    g.registration_channel_id = ids.registration_channel_id;
+    g.confirm_channel_id = ids.confirm_channel_id;
+    saveGuild(i.guildId, g);
+    const e = new EmbedBuilder().setTitle("▶️ Tournament Started").setColor(0x2ecc71)
+      .setDescription(
+        `**${g.tournament_name}** is now LIVE!\n` +
+        "All info channels are view-only. Drop your registration in the registration channel.\n" +
+        "Good luck to all teams! 🏆"
+      ).setFooter({ text: "BRN ESPORTS OFFICIAL BOT" });
+    const sent = await postToAllTournamentChannels(i.guild, e);
+    return i.editReply(`▶️ Tournament started. Channels ready & locked, announcement posted in **${sent}** channels.`);
   }
 
   if (action === "pause") {
+    await i.deferReply({ ephemeral: true });
     g.paused = !g.paused; saveGuild(i.guildId, g);
-    return i.reply({ content: g.paused ? "⏸️ Tournament paused." : "▶️ Tournament resumed.", ephemeral: true });
+    if (g.paused) {
+      await applyPausedPerms(i.guild);
+      const e = new EmbedBuilder().setTitle("🔒 Tournament Closed").setColor(0xe74c3c)
+        .setDescription(
+          `**${g.tournament_name}** has been **paused**.\n` +
+          "All channels are now locked. You can only **view**, not send messages.\n" +
+          "Please wait for staff to resume the tournament."
+        ).setFooter({ text: "BRN ESPORTS OFFICIAL BOT" });
+      const sent = await postToAllTournamentChannels(i.guild, e);
+      return i.editReply(`⏸️ Tournament paused. All **${sent}** tournament channels locked.`);
+    } else {
+      await applyRunningPerms(i.guild);
+      const e = new EmbedBuilder().setTitle("▶️ Tournament Resumed").setColor(0x2ecc71)
+        .setDescription(`**${g.tournament_name}** is back **LIVE**!\nChannels have been unlocked. Game on! 🔥`)
+        .setFooter({ text: "BRN ESPORTS OFFICIAL BOT" });
+      const sent = await postToAllTournamentChannels(i.guild, e);
+      return i.editReply(`▶️ Tournament resumed. **${sent}** channels unlocked & announced.`);
+    }
   }
 
   if (action === "groups") {
@@ -82,14 +105,22 @@ async function tournamentButton(i, action) {
   }
 
   if (action === "slots") {
+    await i.deferReply({ ephemeral: true });
+    const ch = await ensurePrivateSlotManagerChannel(i.guild);
     const e = new EmbedBuilder().setTitle("🎟️ Slot Manager").setColor(ACCENT)
-      .setDescription(`Slots: **${g.teams.length}/${g.max_slots}**\nUse the buttons below.`);
+      .setDescription(
+        `Slots: **${g.teams.length}/${g.max_slots}**\n` +
+        "Use the buttons below to manage slots."
+      ).setFooter({ text: "BRN ESPORTS OFFICIAL BOT" });
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("sm:list").setLabel("List Slots").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId("sm:cancel").setLabel("Cancel a Slot").setStyle(ButtonStyle.Danger),
       new ButtonBuilder().setCustomId("sm:reset").setLabel("Reset All").setStyle(ButtonStyle.Secondary),
     );
-    return i.reply({ embeds: [e], components: [row], ephemeral: true });
+    try { await ch.send({ embeds: [e], components: [row] }); } catch {}
+    return i.editReply(
+      `🔒 Private slot manager channel ready: <#${ch.id}>\n*Only members with **Manage Channels** can see it.*`,
+    );
   }
 }
 
