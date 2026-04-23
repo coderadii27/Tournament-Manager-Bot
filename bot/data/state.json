@@ -6,9 +6,9 @@
       "max_slots": 16,
       "running": false,
       "paused": false,
-      "registration_channel_id": null,
-      "confirm_channel_id": null,
-      "slot_manager_channel_id": null,
+      "registration_channel_id": 1496774290442293331,
+      "confirm_channel_id": 1496774291520225380,
+      "slot_manager_channel_id": 1496774510559625366,
       "teams": [],
       "groups": {}
     }

@@ -1,0 +1,13 @@
+{
+  "name": "brn-esports-bot-js",
+  "version": "1.0.0",
+  "description": "BRN ESPORTS Discord Tournament Manager Bot (JavaScript / discord.js)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}
