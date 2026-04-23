@@ -1,0 +1,141 @@
+Create a full Discord Tournament Manager Bot using ONLY Python (discord.py). 
+Do NOT use TypeScript or JavaScript.
+
+The bot should be designed for managing esports tournaments for a Discord server.
+
+GENERAL SETTINGS
+- Bot status should be DND.
+- Bot activity text: "Organising Tournaments in BRN ESPORTS".
+- Bot description: "BRN ESPORTS OFFICIAL BOT".
+- Clean and modern UI/UX using Discord embeds, buttons, and views.
+
+MAIN COMMAND
+Prefix: ?
+
+When a user types ?t
+The bot should send an embed panel with buttons like:
+
+• Create Tournament
+• Create Channels
+• Start Tournament
+• Pause Tournament
+• Manage Groups
+• Slot Manager
+
+CHANNEL CREATION
+When "Create Channels" is clicked, automatically create these channels in the server:
+
+—͟͞͞-⨳〢info  
+—͟͞͞-⨳〢updates  
+—͟͞͞-⨳〢rules  
+—͟͞͞-⨳〢how-to-register  
+—͟͞͞-⨳〢registration-format  
+—͟͞͞-⨳〢registration  
+—͟͞͞-⨳〢confirm-teams  
+—͟͞͞-⨳〢roadmaps  
+—͟͞͞-⨳〢schedule  
+—͟͞͞-⨳〢point-table  
+—͟͞͞-⨳〢query
+
+REGISTRATION FORMAT
+In the channel "registration-format" send this format:
+
+TEAM NAME -
+
+PLAYER 1 (IGL) :
+CHARACTER ID :
+DISCORD TAG :
+
+PLAYER 2 :
+CHARACTER ID :
+DISCORD TAG :
+
+PLAYER 3 :
+CHARACTER ID :
+DISCORD TAG :
+
+PLAYER 4 :
+CHARACTER ID :
+DISCORD TAG :
+
+PLAYER 5 :
+CHARACTER ID :
+DISCORD TAG :
+
+REGISTRATION SYSTEM
+- Bot should monitor the registration channel.
+- If the message follows the correct format, react with ✅.
+- If the format is incorrect, react with ❌.
+- The number of tournament slots should be configurable (example: 16 / 32 / 64 teams).
+- When a team is validated, automatically send a confirmation message in "confirm-teams" channel saying the team is confirmed.
+
+TEAM SIZE
+- Tournament creator can set how many players per team.
+
+SLOT MANAGER PANEL
+Create a channel called "slot-manager".
+
+Inside it send an embed:
+
+Tournament Slot Manager - EliteQ-tourny
+
+• Click Cancel My Slot below to cancel your slot.
+• Click My Slots to get info about all your slots.
+• Click Change Team Name if you want to update your team's name.
+
+Note that slot cancel is irreversible.
+
+Include buttons:
+- Cancel My Slot
+- My Slots
+- Change Team Name
+
+MODERATION SYSTEM (Slash Commands)
+Create slash commands:
+
+/ban user reason
+/kick user reason
+/mute user time (minutes/hours/days)
+/unmute user
+
+PURGE COMMAND
+Create a prefix command:
+
+?purge <1-100>
+
+Also allow:
+?purge @user
+
+This deletes messages from a specific user.
+
+GIVEAWAY SYSTEM
+Create a giveaway system with commands:
+
+?gstart <time> <prize> <winners> 
+Time format:
+seconds
+minutes
+hours
+days
+
+Example:
+?gstart 10m Nitro 1winner 
+
+Features:
+- Giveaway embed
+- Join button with emoji 
+- Automatic end
+- Random winner selection
+
+UI/UX
+- Use modern embeds
+- Use buttons for actions
+- Make it look clean and professional like a Gen-Z esports bot.
+
+FILE STRUCTURE
+Organize the bot using cogs or separate modules if possible.
+
+Make the code clean, commented, and ready to run on Replit.
+
+Also provide: 
+readme and how to run this bot for my github
