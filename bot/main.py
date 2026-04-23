@@ -38,6 +38,7 @@ INITIAL_COGS = [
     "cogs.purge",
     "cogs.giveaway",
     "cogs.management",
+    "cogs.ticket",
 ]
 
 

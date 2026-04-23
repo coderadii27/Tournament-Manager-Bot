@@ -4,6 +4,7 @@ import {
 } from "discord.js";
 import { BRAND, ACCENT, parseDurationSec } from "../constants.js";
 import { getGuild, saveGuild } from "../state.js";
+import { ticketSetupCommand, ticketPanelCommand, ticketCloseCommand } from "./tickets.js";
 
 const isAdmin = (i) => i.memberPermissions?.has(PermissionFlagsBits.ManageGuild);
 
@@ -48,6 +49,10 @@ export async function handleSlash(i) {
   if (n === "welcomeoff") return doWelcomeOff(i);
 
   if (n === "help") return doHelp(i);
+
+  if (n === "ticketsetup") return ticketSetupCommand(i);
+  if (n === "ticketpanel") return ticketPanelCommand(i);
+  if (n === "ticketclose") return ticketCloseCommand(i);
 }
 
 async function doBan(i) {

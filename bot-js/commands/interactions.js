@@ -5,6 +5,7 @@ import {
 import { BRAND, ACCENT, CHANNEL_NAMES, REGISTRATION_FORMAT } from "../constants.js";
 import { getGuild, saveGuild, setGiveaway, getAllGiveaways } from "../state.js";
 import { giveawayEmbed } from "./prefix.js";
+import { handleTicketButton } from "./tickets.js";
 
 export async function handleInteraction(i) {
   if (i.isButton()) return handleButton(i);
@@ -16,6 +17,7 @@ async function handleButton(i) {
   if (id.startsWith("t:")) return tournamentButton(i, id.slice(2));
   if (id.startsWith("sm:")) return slotManagerButton(i, id.slice(3));
   if (id === "ga:join") return giveawayJoin(i);
+  if (id.startsWith("ticket:")) return handleTicketButton(i, id.slice(7));
 }
 
 async function tournamentButton(i, action) {

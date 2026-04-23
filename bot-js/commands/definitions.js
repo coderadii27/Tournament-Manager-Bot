@@ -140,5 +140,17 @@ export function buildSlashDefinitions() {
 
   cmds.push(new SlashCommandBuilder().setName("help").setDescription("Show all commands.").toJSON());
 
+  // Tickets
+  cmds.push(new SlashCommandBuilder().setName("ticketsetup").setDescription("Configure ticket system & post the panel.")
+    .addRoleOption(o => o.setName("staff_role").setDescription("Role that can see, claim and close tickets"))
+    .addChannelOption(o => o.setName("category").setDescription("Category to host new tickets").addChannelTypes(4))
+    .addChannelOption(o => o.setName("channel").setDescription("Channel to post the panel in").addChannelTypes(0))
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).toJSON());
+
+  cmds.push(new SlashCommandBuilder().setName("ticketpanel").setDescription("Re-post the ticket panel here.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild).toJSON());
+
+  cmds.push(new SlashCommandBuilder().setName("ticketclose").setDescription("Close the current ticket channel.").toJSON());
+
   return cmds;
 }
