@@ -16,6 +16,148 @@ def _is_admin(inter: discord.Interaction) -> bool:
     return inter.user.guild_permissions.manage_guild
 
 
+class AnnounceModal(discord.ui.Modal, title="📢 New Announcement"):
+    def __init__(self, ping_everyone: bool, image_url: str):
+        super().__init__(timeout=600)
+        self.ping_everyone = ping_everyone
+        self.image_url = image_url
+        self.title_in = discord.ui.TextInput(label="Title", max_length=200, placeholder="Tournament Update")
+        self.body_in = discord.ui.TextInput(
+            label="Message (Shift+Enter for new line)",
+            style=discord.TextStyle.paragraph,
+            max_length=3800,
+            placeholder="Type your announcement here...\nUse Shift+Enter to add new lines.",
+        )
+        self.add_item(self.title_in)
+        self.add_item(self.body_in)
+
+    async def on_submit(self, inter: discord.Interaction):
+        e = discord.Embed(title=f"📢 {self.title_in}", description=str(self.body_in), color=ACCENT)
+        if self.image_url:
+            e.set_image(url=self.image_url)
+        e.set_footer(text=f"Announced by {inter.user} • BRN ESPORTS")
+        content = "@everyone" if self.ping_everyone else None
+        await inter.response.send_message(
+            content=content, embed=e,
+            allowed_mentions=discord.AllowedMentions(everyone=self.ping_everyone),
+        )
+
+
+class EmbedModal(discord.ui.Modal, title="✨ Custom Embed"):
+    def __init__(self, color_hex: str, image_url: str, thumbnail_url: str, footer_url: str):
+        super().__init__(timeout=600)
+        self.color_hex = color_hex
+        self.image_url = image_url
+        self.thumbnail_url = thumbnail_url
+        self.footer_url = footer_url
+        self.title_in = discord.ui.TextInput(label="Title", max_length=256, required=False)
+        self.body_in = discord.ui.TextInput(
+            label="Description (Shift+Enter for new lines)",
+            style=discord.TextStyle.paragraph,
+            max_length=3800,
+        )
+        self.footer_in = discord.ui.TextInput(label="Footer text", max_length=200, required=False, default="BRN ESPORTS OFFICIAL BOT")
+        self.add_item(self.title_in)
+        self.add_item(self.body_in)
+        self.add_item(self.footer_in)
+
+    async def on_submit(self, inter: discord.Interaction):
+        try:
+            color = int(self.color_hex.lstrip("#"), 16) if self.color_hex else BRAND
+        except ValueError:
+            color = BRAND
+        e = discord.Embed(
+            title=str(self.title_in) or None,
+            description=str(self.body_in),
+            color=color,
+        )
+        if self.image_url:
+            e.set_image(url=self.image_url)
+        if self.thumbnail_url:
+            e.set_thumbnail(url=self.thumbnail_url)
+        footer_text = str(self.footer_in) or "BRN ESPORTS OFFICIAL BOT"
+        if self.footer_url:
+            e.set_footer(text=footer_text, icon_url=self.footer_url)
+        else:
+            e.set_footer(text=footer_text)
+        await inter.response.send_message(embed=e)
+
+
+class DMCaptainsModal(discord.ui.Modal, title="📨 DM All Captains"):
+    def __init__(self, bot):
+        super().__init__(timeout=600)
+        self.bot = bot
+        self.title_in = discord.ui.TextInput(label="Title", default="Tournament Notice", max_length=200)
+        self.body_in = discord.ui.TextInput(
+            label="Message (Shift+Enter for new lines)",
+            style=discord.TextStyle.paragraph,
+            max_length=3800,
+        )
+        self.add_item(self.title_in)
+        self.add_item(self.body_in)
+
+    async def on_submit(self, inter: discord.Interaction):
+        await inter.response.defer(ephemeral=True, thinking=True)
+        g = get_guild(inter.guild_id)
+        sent, failed = 0, 0
+        for t in g.get("teams", []):
+            uid = t.get("captain_id")
+            try:
+                user = inter.guild.get_member(uid) or await self.bot.fetch_user(uid)
+                e = discord.Embed(title=f"📨 {self.title_in}", description=str(self.body_in), color=BRAND)
+                if inter.guild.icon:
+                    e.set_thumbnail(url=inter.guild.icon.url)
+                e.set_footer(text=f"From {inter.guild.name} • BRN ESPORTS")
+                await user.send(embed=e)
+                sent += 1
+            except Exception:
+                failed += 1
+        await inter.followup.send(f"✅ Sent to **{sent}** captains. Failed for **{failed}**.", ephemeral=True)
+
+
+class GreetModal(discord.ui.Modal, title="👋 Greet Members (DM)"):
+    def __init__(self, image_url: str, footer_gif: str, only_role: discord.Role | None):
+        super().__init__(timeout=600)
+        self.image_url = image_url
+        self.footer_gif = footer_gif
+        self.only_role = only_role
+        self.title_in = discord.ui.TextInput(label="DM Title", default="Welcome to BRN ESPORTS!", max_length=200)
+        self.body_in = discord.ui.TextInput(
+            label="DM Message (Shift+Enter for new lines)",
+            style=discord.TextStyle.paragraph,
+            max_length=3800,
+            placeholder="Hey {user}, welcome to our tournament server!\nCheck out the rules and how to register.",
+        )
+        self.add_item(self.title_in)
+        self.add_item(self.body_in)
+
+    async def on_submit(self, inter: discord.Interaction):
+        await inter.response.defer(ephemeral=True, thinking=True)
+        guild = inter.guild
+        members = [m for m in guild.members if not m.bot]
+        if self.only_role:
+            members = [m for m in members if self.only_role in m.roles]
+
+        sent, failed = 0, 0
+        for m in members:
+            try:
+                body = str(self.body_in).replace("{user}", m.mention).replace("{name}", m.display_name).replace("{server}", guild.name)
+                e = discord.Embed(title=str(self.title_in), description=body, color=BRAND)
+                if self.image_url:
+                    e.set_image(url=self.image_url)
+                if guild.icon:
+                    e.set_thumbnail(url=guild.icon.url)
+                if self.footer_gif:
+                    e.set_footer(text=f"From {guild.name} • BRN ESPORTS", icon_url=self.footer_gif)
+                else:
+                    e.set_footer(text=f"From {guild.name} • BRN ESPORTS")
+                await m.send(embed=e)
+                sent += 1
+            except Exception:
+                failed += 1
+        await inter.followup.send(f"✅ Greet DM sent to **{sent}** members. Failed for **{failed}** (DMs closed).", ephemeral=True)
+
+
 class Management(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -113,43 +255,138 @@ class Management(commands.Cog):
         e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
         await inter.response.send_message(embed=e)
 
-    @app_commands.command(name="announce", description="Send an announcement embed in this channel.")
-    @app_commands.describe(title="Announcement title", message="Announcement message", ping_everyone="Ping @everyone?")
+    @app_commands.command(name="announce", description="Open a multi-line announcement form for this channel.")
+    @app_commands.describe(ping_everyone="Ping @everyone?", image_url="Optional banner image URL")
     @app_commands.default_permissions(manage_messages=True)
-    async def announce(self, inter: discord.Interaction, title: str, message: str, ping_everyone: bool = False):
+    async def announce(self, inter: discord.Interaction, ping_everyone: bool = False, image_url: str = ""):
         if not inter.user.guild_permissions.manage_messages:
             await inter.response.send_message("Manage Messages permission required.", ephemeral=True)
             return
-        e = discord.Embed(title=f"📢 {title}", description=message.replace("\\n", "\n"), color=ACCENT)
-        e.set_footer(text=f"Announced by {inter.user} • BRN ESPORTS")
-        content = "@everyone" if ping_everyone else None
-        await inter.response.send_message(content=content, embed=e, allowed_mentions=discord.AllowedMentions(everyone=ping_everyone))
+        await inter.response.send_modal(AnnounceModal(ping_everyone=ping_everyone, image_url=image_url))
 
-    @app_commands.command(name="dmcaptains", description="DM all team captains a message.")
-    @app_commands.describe(message="The message to send")
+    @app_commands.command(name="dmcaptains", description="Open a multi-line form to DM all team captains.")
     @app_commands.default_permissions(manage_guild=True)
-    async def dmcaptains(self, inter: discord.Interaction, message: str):
+    async def dmcaptains(self, inter: discord.Interaction):
         if not _is_admin(inter):
             await inter.response.send_message("Manage Server permission required.", ephemeral=True)
             return
-        await inter.response.defer(ephemeral=True, thinking=True)
-        g = get_guild(inter.guild_id)
-        sent, failed = 0, 0
-        for t in g.get("teams", []):
-            uid = t.get("captain_id")
+        await inter.response.send_modal(DMCaptainsModal(self.bot))
+
+    @app_commands.command(name="greet", description="DM a welcome message + image to all members (or a role).")
+    @app_commands.describe(image_url="Banner image URL (optional)", footer_gif="Footer icon/GIF URL (optional)", role="Only DM members with this role (optional)")
+    @app_commands.default_permissions(manage_guild=True)
+    async def greet(self, inter: discord.Interaction, image_url: str = "", footer_gif: str = "", role: discord.Role = None):
+        if not _is_admin(inter):
+            await inter.response.send_message("Manage Server permission required.", ephemeral=True)
+            return
+        await inter.response.send_modal(GreetModal(image_url=image_url, footer_gif=footer_gif, only_role=role))
+
+    @app_commands.command(name="sayembed", description="Build a custom embed with a multi-line form.")
+    @app_commands.describe(color_hex="Hex color e.g. #9B5CF6", image_url="Banner image URL", thumbnail_url="Thumbnail URL", footer_icon_url="Footer icon/GIF URL")
+    @app_commands.default_permissions(manage_messages=True)
+    async def sayembed(self, inter: discord.Interaction, color_hex: str = "", image_url: str = "", thumbnail_url: str = "", footer_icon_url: str = ""):
+        if not inter.user.guild_permissions.manage_messages:
+            await inter.response.send_message("Manage Messages permission required.", ephemeral=True)
+            return
+        await inter.response.send_modal(EmbedModal(color_hex=color_hex, image_url=image_url, thumbnail_url=thumbnail_url, footer_url=footer_icon_url))
+
+    @app_commands.command(name="poll", description="Create a quick yes/no or up to 5-option poll.")
+    @app_commands.describe(question="Poll question", option1="Option 1", option2="Option 2", option3="Option 3 (optional)", option4="Option 4 (optional)", option5="Option 5 (optional)")
+    async def poll(self, inter: discord.Interaction, question: str, option1: str = "Yes", option2: str = "No", option3: str = "", option4: str = "", option5: str = ""):
+        opts = [o for o in [option1, option2, option3, option4, option5] if o]
+        emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+        desc = "\n".join(f"{emojis[i]}  {o}" for i, o in enumerate(opts))
+        e = discord.Embed(title=f"📊 {question}", description=desc, color=BRAND)
+        e.set_footer(text=f"Poll by {inter.user} • BRN ESPORTS")
+        await inter.response.send_message(embed=e)
+        msg = await inter.original_response()
+        for i in range(len(opts)):
             try:
-                user = inter.guild.get_member(uid) or await inter.client.fetch_user(uid)
-                e = discord.Embed(
-                    title=f"📨 {g.get('tournament_name','Tournament')} — Notice",
-                    description=message.replace("\\n", "\n"),
-                    color=BRAND,
-                )
-                e.set_footer(text=f"From {inter.guild.name} • BRN ESPORTS")
-                await user.send(embed=e)
-                sent += 1
-            except Exception:
-                failed += 1
-        await inter.followup.send(f"✅ Sent to **{sent}** captains, failed for **{failed}**.", ephemeral=True)
+                await msg.add_reaction(emojis[i])
+            except discord.HTTPException:
+                pass
+
+    @app_commands.command(name="serverinfo", description="Show server information.")
+    async def serverinfo(self, inter: discord.Interaction):
+        gd = inter.guild
+        e = discord.Embed(title=f"🌐 {gd.name}", color=BRAND)
+        if gd.icon:
+            e.set_thumbnail(url=gd.icon.url)
+        e.add_field(name="Members", value=f"`{gd.member_count}`")
+        e.add_field(name="Roles", value=f"`{len(gd.roles)}`")
+        e.add_field(name="Channels", value=f"`{len(gd.channels)}`")
+        e.add_field(name="Created", value=discord.utils.format_dt(gd.created_at, "R"))
+        e.add_field(name="Owner", value=gd.owner.mention if gd.owner else "?")
+        e.add_field(name="Boosts", value=f"`{gd.premium_subscription_count}`")
+        e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
+        await inter.response.send_message(embed=e)
+
+    @app_commands.command(name="userinfo", description="Show info about a user.")
+    @app_commands.describe(user="User (default: you)")
+    async def userinfo(self, inter: discord.Interaction, user: discord.Member = None):
+        u = user or inter.user
+        e = discord.Embed(title=f"👤 {u}", color=BRAND)
+        e.set_thumbnail(url=u.display_avatar.url)
+        e.add_field(name="ID", value=f"`{u.id}`", inline=False)
+        e.add_field(name="Joined Server", value=discord.utils.format_dt(u.joined_at, "R") if u.joined_at else "?")
+        e.add_field(name="Account Created", value=discord.utils.format_dt(u.created_at, "R"))
+        roles = [r.mention for r in u.roles if r.name != "@everyone"]
+        e.add_field(name=f"Roles ({len(roles)})", value=" ".join(roles[:20]) or "—", inline=False)
+        e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
+        await inter.response.send_message(embed=e)
+
+    @app_commands.command(name="avatar", description="Show a user's avatar.")
+    @app_commands.describe(user="User (default: you)")
+    async def avatar(self, inter: discord.Interaction, user: discord.Member = None):
+        u = user or inter.user
+        e = discord.Embed(title=f"🖼️ {u.display_name}'s Avatar", color=BRAND)
+        e.set_image(url=u.display_avatar.url)
+        await inter.response.send_message(embed=e)
+
+    @app_commands.command(name="setwelcome", description="Set the welcome channel + message for new members (auto-greet).")
+    @app_commands.describe(channel="Channel to greet new members in", message="Welcome text. Use {user}, {server}.", image_url="Optional banner image URL")
+    @app_commands.default_permissions(manage_guild=True)
+    async def setwelcome(self, inter: discord.Interaction, channel: discord.TextChannel, message: str, image_url: str = ""):
+        if not _is_admin(inter):
+            await inter.response.send_message("Manage Server permission required.", ephemeral=True)
+            return
+        g = get_guild(inter.guild_id)
+        g["welcome"] = {"channel_id": channel.id, "message": message, "image_url": image_url}
+        save_guild(inter.guild_id, g)
+        await inter.response.send_message(f"✅ Welcome channel set to {channel.mention}.", ephemeral=True)
+
+    @app_commands.command(name="welcomeoff", description="Disable auto-welcome for new members.")
+    @app_commands.default_permissions(manage_guild=True)
+    async def welcomeoff(self, inter: discord.Interaction):
+        if not _is_admin(inter):
+            await inter.response.send_message("Manage Server permission required.", ephemeral=True)
+            return
+        g = get_guild(inter.guild_id)
+        g.pop("welcome", None)
+        save_guild(inter.guild_id, g)
+        await inter.response.send_message("✅ Auto-welcome disabled.", ephemeral=True)
+
+    @commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        if member.bot:
+            return
+        g = get_guild(member.guild.id)
+        w = g.get("welcome")
+        if not w or not w.get("channel_id"):
+            return
+        ch = member.guild.get_channel(w["channel_id"])
+        if ch is None:
+            return
+        msg = w.get("message", "Welcome {user} to {server}!").replace("{user}", member.mention).replace("{server}", member.guild.name).replace("{name}", member.display_name)
+        e = discord.Embed(title=f"👋 Welcome to {member.guild.name}!", description=msg, color=BRAND)
+        e.set_thumbnail(url=member.display_avatar.url)
+        if w.get("image_url"):
+            e.set_image(url=w["image_url"])
+        e.set_footer(text=f"Member #{member.guild.member_count} • BRN ESPORTS")
+        try:
+            await ch.send(content=member.mention, embed=e)
+        except discord.HTTPException:
+            pass
 
     # ---------------- Schedule ----------------
 
@@ -366,7 +603,17 @@ class Management(commands.Cog):
         )
         e.add_field(
             name="📢 Communication",
-            value="`/announce` • `/dmcaptains`",
+            value="`/announce` • `/dmcaptains` • `/greet` • `/sayembed` • `/poll`",
+            inline=False,
+        )
+        e.add_field(
+            name="👋 Welcome System",
+            value="`/setwelcome` • `/welcomeoff`",
+            inline=False,
+        )
+        e.add_field(
+            name="🔍 Info",
+            value="`/serverinfo` • `/userinfo` • `/avatar`",
             inline=False,
         )
         e.add_field(
