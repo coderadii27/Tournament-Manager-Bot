@@ -241,6 +241,71 @@ class Management(commands.Cog):
         save_guild(inter.guild_id, g)
         await inter.response.send_message(f"✅ Tournament renamed to **{name}**.")
 
+    # ---------------- IDP private channel ----------------
+
+    @app_commands.command(name="sendidp", description="Create a private IDP channel visible only to a chosen role.")
+    @app_commands.describe(role="Role allowed to view the IDP channel (e.g. @idp access)")
+    @app_commands.default_permissions(manage_channels=True)
+    async def sendidp(self, inter: discord.Interaction, role: discord.Role):
+        if not inter.user.guild_permissions.manage_channels:
+            await inter.response.send_message("Manage Channels permission required.", ephemeral=True)
+            return
+        await inter.response.defer(ephemeral=True, thinking=True)
+        guild = inter.guild
+        category = discord.utils.get(guild.categories, name="🏆 BRN ESPORTS")
+        if category is None:
+            category = await guild.create_category("🏆 BRN ESPORTS", reason="IDP setup")
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),
+            guild.me: discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, manage_messages=True, manage_channels=True,
+            ),
+            role: discord.PermissionOverwrite(
+                view_channel=True, send_messages=False, read_message_history=True, add_reactions=True,
+            ),
+        }
+        for r in guild.roles:
+            if r.is_default():
+                continue
+            p = r.permissions
+            if p.administrator or p.manage_guild or p.manage_channels:
+                overwrites[r] = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, read_message_history=True
+                )
+
+        ch = discord.utils.get(guild.text_channels, name="—͟͞͞-⨳〢idp")
+        if ch is None:
+            ch = await guild.create_text_channel(
+                "—͟͞͞-⨳〢idp", category=category, overwrites=overwrites,
+                reason=f"Private IDP channel for {role.name}",
+            )
+        else:
+            for target, ow in overwrites.items():
+                try:
+                    await ch.set_permissions(target, overwrite=ow)
+                except discord.Forbidden:
+                    pass
+
+        # Save IDP role so registration auto-grants it to IGLs
+        g = get_guild(guild.id)
+        g["idp_channel_id"] = ch.id
+        g["idp_role_id"] = role.id
+        save_guild(guild.id, g)
+
+        e = discord.Embed(
+            title="🎟️ IDP Channel Ready",
+            description=(
+                f"📡 **Room ID & Password** updates will be posted in {ch.mention}.\n"
+                f"👀 Visible only to {role.mention} and staff.\n"
+                f"✨ IGLs of confirmed teams will automatically get {role.mention}."
+            ),
+            color=BRAND,
+        )
+        e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
+        await ch.send(content=role.mention, embed=e, allowed_mentions=discord.AllowedMentions(roles=True))
+        await inter.followup.send(f"✅ IDP channel ready: {ch.mention}", ephemeral=True)
+
     @app_commands.command(name="endtournament", description="End and reset the current tournament.")
     @app_commands.default_permissions(manage_guild=True)
     async def end_t(self, inter: discord.Interaction):
@@ -628,6 +693,38 @@ class Management(commands.Cog):
         )
         e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
         await inter.response.send_message(embed=e, ephemeral=True)
+
+    # ---------------- Force resync slash commands ----------------
+
+    @commands.command(name="sync")
+    @commands.has_permissions(manage_guild=True)
+    async def sync_cmds(self, ctx: commands.Context):
+        """Force re-sync of all slash commands to this guild."""
+        if ctx.guild is None:
+            return
+        msg = await ctx.reply("⏳ Resyncing slash commands…", mention_author=False)
+        try:
+            ctx.bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+            await msg.edit(content=f"✅ Resynced **{len(synced)}** commands to **{ctx.guild.name}**.")
+        except Exception as e:
+            await msg.edit(content=f"❌ Sync failed: `{e}`")
+
+    @commands.command(name="syncall")
+    @commands.has_permissions(manage_guild=True)
+    async def sync_all(self, ctx: commands.Context):
+        """Force re-sync of all slash commands to every guild the bot is in."""
+        msg = await ctx.reply("⏳ Resyncing slash commands to every guild…", mention_author=False)
+        total = 0
+        failed = 0
+        for guild in ctx.bot.guilds:
+            try:
+                ctx.bot.tree.copy_global_to(guild=guild)
+                synced = await ctx.bot.tree.sync(guild=guild)
+                total += len(synced)
+            except Exception:
+                failed += 1
+        await msg.edit(content=f"✅ Synced **{total}** commands across **{len(ctx.bot.guilds) - failed}** guilds. Failed: **{failed}**.")
 
 
 async def setup(bot: commands.Bot):

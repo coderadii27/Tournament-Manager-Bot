@@ -84,28 +84,41 @@ class SlotManager(commands.Cog):
         self.bot = bot
         self.bot.add_view(SlotManagerView())
 
-    async def setup_panel(self, guild: discord.Guild) -> discord.TextChannel:
+    async def setup_panel(self, guild: discord.Guild, invoker: discord.Member | None = None) -> discord.TextChannel:
         g = get_guild(guild.id)
         ch = discord.utils.get(guild.text_channels, name="slot-manager")
         category = discord.utils.get(guild.categories, name="🏆 BRN ESPORTS")
-        # Private: hide from @everyone, allow bot full access. Members with
-        # Manage Channels (admins/staff) can see it via permission inheritance.
-        overwrites = {
+        # Private: hide from @everyone, grant view to bot + invoker + every role
+        # that already has Manage Channels / Manage Guild server-wide (staff).
+        overwrites: dict = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             guild.me: discord.PermissionOverwrite(
                 view_channel=True, send_messages=True, manage_messages=True, manage_channels=True
             ),
         }
+        for role in guild.roles:
+            if role.is_default():
+                continue
+            p = role.permissions
+            if p.administrator or p.manage_guild or p.manage_channels:
+                overwrites[role] = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, read_message_history=True
+                )
+        if invoker is not None:
+            overwrites[invoker] = discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, read_message_history=True
+            )
         if ch is None:
             ch = await guild.create_text_channel(
                 "slot-manager", category=category, overwrites=overwrites,
                 reason="Private slot manager channel",
             )
         else:
-            try:
-                await ch.set_permissions(guild.default_role, overwrite=overwrites[guild.default_role])
-            except discord.Forbidden:
-                pass
+            for target, ow in overwrites.items():
+                try:
+                    await ch.set_permissions(target, overwrite=ow)
+                except discord.Forbidden:
+                    pass
         embed = discord.Embed(
             title=f"🎟️ Tournament Slot Manager — {g.get('tournament_name', 'EliteQ-tourny')}",
             description=(

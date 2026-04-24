@@ -84,19 +84,36 @@ class Registration(commands.Cog):
         except discord.HTTPException:
             pass
 
+        # Auto-assign IDP access role to the IGL (the captain who posted form)
+        idp_role = None
+        idp_role_id = g.get("idp_role_id")
+        if idp_role_id:
+            idp_role = message.guild.get_role(int(idp_role_id))
+        if idp_role is None:
+            idp_role = discord.utils.find(
+                lambda r: r.name.lower() in ("idp access", "idp-access", "idp"),
+                message.guild.roles,
+            )
+        if idp_role is not None and isinstance(message.author, discord.Member):
+            try:
+                await message.author.add_roles(idp_role, reason="IGL — registration confirmed")
+            except discord.Forbidden:
+                pass
+            except discord.HTTPException:
+                pass
+
         confirm_id = g.get("confirm_channel_id")
         if confirm_id:
             ch = message.guild.get_channel(confirm_id)
             if ch is not None:
-                embed = discord.Embed(
-                    title="✅ Team Confirmed",
-                    description=(
-                        f"**{team_name}** is officially registered!\n"
-                        f"Captain: {message.author.mention}\n"
-                        f"Slot: `{len(teams)}/{max_slots}`"
-                    ),
-                    color=0x2ECC71,
+                desc = (
+                    f"**{team_name}** is officially registered!\n"
+                    f"Captain (IGL): {message.author.mention}\n"
+                    f"Slot: `{len(teams)}/{max_slots}`"
                 )
+                if idp_role is not None:
+                    desc += f"\n🎟️ IGL given role: {idp_role.mention}"
+                embed = discord.Embed(title="✅ Team Confirmed", description=desc, color=0x2ECC71)
                 embed.set_footer(text="BRN ESPORTS OFFICIAL BOT")
                 await ch.send(embed=embed)
 

@@ -39,6 +39,7 @@ INITIAL_COGS = [
     "cogs.giveaway",
     "cogs.management",
     "cogs.ticket",
+    "cogs.sticky",
 ]
 
 

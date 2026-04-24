@@ -8,7 +8,19 @@
       "paused": false,
       "registration_channel_id": 1496774290442293331,
       "confirm_channel_id": 1496774291520225380,
-      "slot_manager_channel_id": 1496774510559625366,
+      "slot_manager_channel_id": 1497064738394341406,
+      "teams": [],
+      "groups": {}
+    },
+    "1427153752116301845": {
+      "tournament_name": "EliteQ-tourny",
+      "team_size": 5,
+      "max_slots": 16,
+      "running": true,
+      "paused": true,
+      "registration_channel_id": 1497065553632952331,
+      "confirm_channel_id": 1497065554853367868,
+      "slot_manager_channel_id": null,
       "teams": [],
       "groups": {}
     }

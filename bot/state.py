@@ -47,11 +47,16 @@ def get_guild(guild_id: int) -> dict:
                 "max_slots": 16,
                 "running": False,
                 "paused": False,
+                "closed": False,
                 "registration_channel_id": None,
                 "confirm_channel_id": None,
                 "slot_manager_channel_id": None,
+                "idp_channel_id": None,
+                "idp_role_id": None,
                 "teams": [],
                 "groups": {},
+                "sticky": {},
+                "sticky_counters": {},
             },
         )
         _save(data)
