@@ -10,6 +10,7 @@ Behaviour:
 - After every 50 messages by other users in a sticky channel, the bot
   deletes its previous sticky message and re-sends it at the bottom so it
   stays visible.
+- Sticky text is sent as PLAIN BOLD text (no embed, no emojis, no box).
 """
 
 from __future__ import annotations
@@ -19,18 +20,15 @@ from discord.ext import commands
 
 from state import get_guild, save_guild
 
-BRAND = 0x9B5CF6
 REPOST_EVERY = 50
 
 
-def _sticky_embed(text: str, channel_name: str) -> discord.Embed:
-    e = discord.Embed(
-        title="📌 Sticky Note",
-        description=text,
-        color=BRAND,
-    )
-    e.set_footer(text=f"This channel is for #{channel_name} • BRN ESPORTS OFFICIAL BOT")
-    return e
+def _sticky_text(text: str) -> str:
+    text = text.strip()
+    # Wrap in bold if not already wrapped
+    if not (text.startswith("**") and text.endswith("**")):
+        text = f"**{text}**"
+    return text
 
 
 class Sticky(commands.Cog):
@@ -71,8 +69,7 @@ class Sticky(commands.Cog):
             except Exception:
                 pass
 
-        embed = _sticky_embed(text, ctx.channel.name)
-        sent = await ctx.channel.send(embed=embed)
+        sent = await ctx.channel.send(_sticky_text(text))
 
         sticky[str(ctx.channel.id)] = {"text": text, "message_id": sent.id}
         counters[str(ctx.channel.id)] = 0
@@ -102,7 +99,7 @@ class Sticky(commands.Cog):
                 await old.delete()
             except Exception:
                 pass
-        await ctx.reply("✅ Sticky removed from this channel.", mention_author=False)
+        await ctx.reply("Sticky removed from this channel.", mention_author=False)
 
     @commands.command(name="stickyinfo")
     async def stickyinfo(self, ctx: commands.Context):
@@ -114,9 +111,7 @@ class Sticky(commands.Cog):
         if not s:
             await ctx.reply("No sticky message in this channel.", mention_author=False)
             return
-        e = discord.Embed(title="📌 Current Sticky", description=s.get("text", ""), color=BRAND)
-        e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
-        await ctx.reply(embed=e, mention_author=False)
+        await ctx.reply(f"Current sticky:\n{_sticky_text(s.get('text', ''))}", mention_author=False)
 
     # --- Listener ------------------------------------------------------------
 
@@ -124,7 +119,6 @@ class Sticky(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot or message.guild is None:
             return
-        # Ignore command invocations from this cog
         if message.content.startswith("?stick") or message.content.startswith("?unstick"):
             return
 
@@ -139,7 +133,6 @@ class Sticky(commands.Cog):
 
         if n >= REPOST_EVERY:
             counters[str(message.channel.id)] = 0
-            # Delete previous sticky message
             prev_id = s.get("message_id")
             if prev_id:
                 try:
@@ -147,10 +140,8 @@ class Sticky(commands.Cog):
                     await old.delete()
                 except Exception:
                     pass
-            # Repost
             try:
-                embed = _sticky_embed(s.get("text", ""), message.channel.name)
-                sent = await message.channel.send(embed=embed)
+                sent = await message.channel.send(_sticky_text(s.get("text", "")))
                 s["message_id"] = sent.id
                 sticky[str(message.channel.id)] = s
             except Exception:

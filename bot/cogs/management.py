@@ -694,6 +694,77 @@ class Management(commands.Cog):
         e.set_footer(text="BRN ESPORTS OFFICIAL BOT")
         await inter.response.send_message(embed=e, ephemeral=True)
 
+    # ---------------- Delete tournament channels ----------------
+
+    @app_commands.command(
+        name="deletetournament",
+        description="Delete tournament channels. Pick a single channel or wipe the whole category.",
+    )
+    @app_commands.describe(
+        channel="Specific channel to delete (optional)",
+        delete_all="If TRUE, delete ALL tournament channels + the BRN ESPORTS category",
+    )
+    @app_commands.default_permissions(manage_channels=True)
+    async def delete_tournament(
+        self,
+        inter: discord.Interaction,
+        channel: discord.TextChannel | None = None,
+        delete_all: bool = False,
+    ):
+        if not inter.user.guild_permissions.manage_channels:
+            await inter.response.send_message("Manage Channels permission required.", ephemeral=True)
+            return
+        await inter.response.defer(ephemeral=True, thinking=True)
+        guild = inter.guild
+        category = discord.utils.get(guild.categories, name="🏆 BRN ESPORTS")
+
+        if not channel and not delete_all:
+            await inter.followup.send(
+                "Pick a `channel` to delete, or set `delete_all: True` to wipe the whole tournament.",
+                ephemeral=True,
+            )
+            return
+
+        if channel and not delete_all:
+            try:
+                await channel.delete(reason=f"Tournament cleanup by {inter.user}")
+                await inter.followup.send(f"🗑️ Deleted **#{channel.name}**.", ephemeral=True)
+            except Exception as e:
+                await inter.followup.send(f"❌ Could not delete: `{e}`", ephemeral=True)
+            return
+
+        # delete_all
+        if category is None:
+            await inter.followup.send("No `🏆 BRN ESPORTS` category found.", ephemeral=True)
+            return
+        deleted = 0
+        for ch in list(category.channels):
+            try:
+                await ch.delete(reason=f"Tournament wipe by {inter.user}")
+                deleted += 1
+            except Exception:
+                pass
+        try:
+            await category.delete(reason=f"Tournament wipe by {inter.user}")
+        except Exception:
+            pass
+
+        # Reset guild state pointers
+        g = get_guild(inter.guild_id)
+        g.update({
+            "running": False, "paused": False, "closed": False,
+            "registration_channel_id": None, "confirm_channel_id": None,
+            "slot_manager_channel_id": None, "public_slot_channel_id": None,
+            "idp_channel_id": None,
+            "teams": [], "groups": {},
+        })
+        save_guild(inter.guild_id, g)
+
+        await inter.followup.send(
+            f"🗑️ Wiped tournament — deleted **{deleted}** channel(s) and the category.",
+            ephemeral=True,
+        )
+
     # ---------------- Force resync slash commands ----------------
 
     @commands.command(name="sync")

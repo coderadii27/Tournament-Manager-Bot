@@ -10,7 +10,18 @@
       "confirm_channel_id": 1496774291520225380,
       "slot_manager_channel_id": 1497064738394341406,
       "teams": [],
-      "groups": {}
+      "groups": {},
+      "sticky": {
+        "1496412041789833277": {
+          "text": "# This channel is for owo cmds use <#1488085096400683053> for conversation",
+          "message_id": 1497072123225575538
+        }
+      },
+      "sticky_counters": {
+        "1496412041789833277": 4
+      },
+      "idp_channel_id": 1497072587933618206,
+      "idp_role_id": 1494947087152975934
     },
     "1427153752116301845": {
       "tournament_name": "EliteQ-tourny",
